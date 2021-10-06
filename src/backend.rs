@@ -1,10 +1,10 @@
-use std::thread;
+use std::{io::Read, thread};
 use portable_pty::{CommandBuilder, PtyPair, PtySize, native_pty_system};
 use winit::event_loop::EventLoopProxy;
 
 #[derive(Debug, Clone)]
 pub enum CustomEvent {
-    StdOut(String)
+    StdOut(Vec<u8>)
 }
 
 pub struct AppBackend {
@@ -31,10 +31,9 @@ impl AppBackend {
                 if len == 0 {
                     break;
                 }
-                if let Ok(chunk) = String::from_utf8(buf.to_vec()) {
-                    sender.send_event(CustomEvent::StdOut(chunk)).ok();
-                    buf = [0u8; 128];
-                }
+                let vbuf = buf[0..len].to_vec();
+                sender.send_event(CustomEvent::StdOut(vbuf)).ok();
+                buf = [0u8; 128];
             }
         });
 

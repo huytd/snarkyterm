@@ -1,5 +1,5 @@
 use wgpu::SurfaceError;
-use winit::{event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
+use winit::{dpi::{LogicalSize, PhysicalSize}, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
 
 mod frontend;
 mod backend;
@@ -25,8 +25,8 @@ fn main() {
     event_loop.run(move |event, _, control_flow| match event {
         Event::UserEvent(event) => {
             match event {
-                CustomEvent::StdOut(data) => {
-                    frontend.append_data(&data);
+                CustomEvent::StdOut(mut data) => {
+                    frontend.set_data(&mut data);
                 }
             }
         },
@@ -61,6 +61,12 @@ fn main() {
                         backend.send(" ");
                     } else if *key == VirtualKeyCode::Return {
                         backend.send("\r");
+                    } else if *key == VirtualKeyCode::Minus {
+                        backend.send("-");
+                    } else if *key == VirtualKeyCode::Period {
+                        backend.send(".");
+                    } else if *key == VirtualKeyCode::Slash {
+                        backend.send("/");
                     } else {
                         let c = format!("{:?}", key).to_lowercase();
                         backend.send(&c);

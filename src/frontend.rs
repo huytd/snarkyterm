@@ -12,7 +12,7 @@ pub struct AppFrontend {
     pub size: PhysicalSize<u32>,
     pub glyph_brush: GlyphBrush<()>,
     pub staging_belt: StagingBelt,
-    pub data: String,
+    pub buffer: Vec<u8>,
     pub scale_factor: f32,
 }
 
@@ -51,8 +51,8 @@ impl AppFrontend {
 
         Self {
             surface, device, queue, config, size, glyph_brush, staging_belt,
-            data: "Press any key".to_string(),
             scale_factor: window.scale_factor() as f32,
+            buffer: vec![]
         }
     }
 
@@ -68,8 +68,12 @@ impl AppFrontend {
         }
     }
 
-    pub fn append_data(&mut self, content: &str) {
-        self.data = format!("{}{}", self.data, content);
+    pub fn set_data(&mut self, buf: &mut Vec<u8>) {
+        if self.buffer.len() < 1920 {
+            self.buffer.append(buf);
+        } else {
+            self.buffer = buf.to_vec();
+        }
     }
 
 
@@ -97,14 +101,49 @@ impl AppFrontend {
             });
         }
 
-        self.glyph_brush.queue(Section {
-            screen_position: (30.0, 30.0 + TITLEBAR_MARGIN),
-            bounds: (self.size.width as f32, self.size.height as f32),
-            text: vec![Text::new(&self.data)
-                .with_color([1.0, 1.0, 1.0, 1.0])
-                .with_scale(20.0 * self.scale_factor)],
-            ..Section::default()
-        });
+        let cell_width = 10.0 * self.scale_factor;
+        let cell_height = 20.0 * self.scale_factor;
+
+        let mut i = 0;
+        let mut j = 0;
+        let mut row = 0.0;
+        let mut col = 0.0;
+        while i < 24 {
+            while j < 80 {
+                let k = i * 80 + j;
+                if self.buffer.len() > k {
+                    let c = String::from_utf8(vec![self.buffer[k]]).unwrap();
+                    if c != "\r" && c != "\n" && c != "\t" {
+                        let x = col * cell_width;
+                        let y = row * cell_height;
+                        self.glyph_brush.queue(Section {
+                            screen_position: (30.0 + x, (30.0 + TITLEBAR_MARGIN) + y),
+                            bounds: (self.size.width as f32, self.size.height as f32),
+                            text: vec![Text::new(&c)
+                                .with_color([1.0, 1.0, 1.0, 1.0])
+                                .with_scale(cell_height)],
+                                ..Section::default()
+                        });
+                    }
+                    if c == "\n" {
+                        col = 0.0;
+                        row += 1.0;
+                        j += 1;
+                        continue;
+                    }
+                    if c == "\t" {
+                        col += (col as i32 / 20) as f32;
+                    }
+                }
+                j += 1;
+                col += 1.0;
+            }
+            println!("");
+            i += 1;
+            row += 1.0;
+            j = 0;
+            col = 0.0;
+        }
 
         self.glyph_brush.draw_queued(&self.device, &mut self.staging_belt, &mut encoder, &view, self.size.width, self.size.height).ok();
         self.staging_belt.finish();
