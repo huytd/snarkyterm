@@ -1,145 +1,91 @@
-use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
-use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
-use winit::{dpi::{self, PhysicalSize}, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::{Window, WindowBuilder}};
+use std::{thread::{self, sleep}, time::Duration};
 
-const TITLEBAR_MARGIN: f32 = 30.0;
+use portable_pty::{CommandBuilder, PtyPair, PtySize, native_pty_system};
+use wgpu::SurfaceError;
+use winit::{event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop, EventLoopProxy}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
 
-struct State {
-    surface: Surface,
-    device: Device,
-    queue: Queue,
-    config: SurfaceConfiguration,
-    size: PhysicalSize<u32>,
-    glyph_brush: GlyphBrush<()>,
-    staging_belt: StagingBelt,
-    data: String,
-    scale_factor: f32
+mod frontend;
+use frontend::AppFrontend;
+
+#[derive(Debug, Clone)]
+pub enum CustomEvent {
+    StdOut(String)
 }
 
-impl State {
-    async fn new(window: &Window) -> Self {
-        let size = window.inner_size();
+pub struct AppBackend {
+    pair: PtyPair
+}
 
-        let instance = Instance::new(Backends::all());
-        let surface = unsafe { instance.create_surface(window) };
-        let adapter = instance.request_adapter(
-            &RequestAdapterOptions {
-                power_preference: PowerPreference::default(),
-                compatible_surface: Some(&surface)
+impl AppBackend {
+    pub fn new(proxy: EventLoopProxy<CustomEvent>) -> Self {
+        let pty_system = native_pty_system();
+        let pair = pty_system.openpty(PtySize {
+            rows: 24,
+            cols: 80,
+            pixel_width: 0,
+            pixel_height: 0
+        }).unwrap();
+        let cmd = CommandBuilder::new("/bin/bash");
+        let _child = pair.slave.spawn_command(cmd).unwrap();
+
+        let mut reader = pair.master.try_clone_reader().unwrap();
+        let sender = proxy.clone();
+        thread::spawn(move || {
+            let mut buf = [0u8; 128];
+            while let Ok(len) = reader.read(&mut buf) {
+                if len == 0 {
+                    break;
+                }
+                if let Ok(chunk) = String::from_utf8(buf.to_vec()) {
+                    sender.send_event(CustomEvent::StdOut(chunk)).ok();
+                    buf = [0u8; 128];
+                }
             }
-        ).await.unwrap();
-
-        let (device, queue) = adapter.request_device(
-            &DeviceDescriptor { label: None, features: Features::empty(), limits: Limits::default() },
-            None
-        ).await.unwrap();
-
-        let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
-            format: surface.get_preferred_format(&adapter).unwrap(),
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Fifo
-        };
-        surface.configure(&device, &config);
-
-        let render_format = TextureFormat::Bgra8UnormSrgb;
-        let font = ab_glyph::FontArc::try_from_slice(include_bytes!("iosevka.ttf")).unwrap();
-        let glyph_brush = GlyphBrushBuilder::using_font(font).build(&device, render_format);
-
-        let staging_belt = StagingBelt::new(1024);
-
-        Self {
-            surface, device, queue, config, size, glyph_brush, staging_belt,
-            data: "Press any key".to_string(),
-            scale_factor: window.scale_factor() as f32
-        }
-    }
-
-    fn resize(&mut self, new_size: PhysicalSize<u32>, scale_factor: f32) {
-        if new_size.width > 0 && new_size.height > 0 {
-            self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
-            if scale_factor > 0.0 {
-                self.scale_factor = scale_factor;
-            }
-        }
-    }
-
-    fn input(&mut self, key_state: &ElementState, key: &VirtualKeyCode) {
-        self.data = format!("Key {:?} {:?}", key, key_state);
-    }
-
-    fn update(&mut self) {
-        // nothing yet
-    }
-
-    fn render(&mut self) -> Result<(), SurfaceError> {
-        let output = self.surface.get_current_frame()?.output;
-        let view = output.texture.create_view(&TextureViewDescriptor::default());
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor { label: Some("Render encoder") });
-        {
-            let _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("Render pass"),
-                color_attachments: &[RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: Operations {
-                        load: LoadOp::Clear(Color {
-                            r: 0.01,
-                            g: 0.01,
-                            b: 0.01,
-                            a: 1.0
-                        }),
-                        store: true
-                    }
-                }],
-                depth_stencil_attachment: None
-            });
-        }
-
-        self.glyph_brush.queue(Section {
-            screen_position: (30.0, 30.0 + TITLEBAR_MARGIN),
-            bounds: (self.size.width as f32, self.size.height as f32),
-            text: vec![Text::new(&self.data)
-                .with_color([1.0, 1.0, 1.0, 1.0])
-                .with_scale(20.0 * self.scale_factor)],
-            ..Section::default()
         });
 
-        self.glyph_brush.draw_queued(&self.device, &mut self.staging_belt, &mut encoder, &view, self.size.width, self.size.height).ok();
-        self.staging_belt.finish();
+        Self {
+            pair
+        }
+    }
 
-        self.queue.submit(std::iter::once(encoder.finish()));
-
-        Ok(())
+    pub fn send(&mut self, data: &str) {
+        write!(self.pair.master, "{}", data).unwrap();
     }
 }
 
 fn main() {
     env_logger::init();
 
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::<CustomEvent>::with_user_event();
     let window = WindowBuilder::new()
         .with_titlebar_transparent(true)
         .with_fullsize_content_view(true)
         .with_title_hidden(true)
         .build(&event_loop)
         .unwrap();
-    let mut state = pollster::block_on(State::new(&window));
+
+    let proxy = event_loop.create_proxy();
+
+    let mut frontend = pollster::block_on(AppFrontend::new(&window));
+    let mut backend = AppBackend::new(proxy);
 
     event_loop.run(move |event, _, control_flow| match event {
+        Event::UserEvent(event) => {
+            match event {
+                CustomEvent::StdOut(data) => {
+                    frontend.append_data(&data);
+                }
+            }
+        },
         Event::WindowEvent {
             ref event,
             window_id
         } if window_id == window.id() => match event {
             WindowEvent::Resized(physical_size) => {
-                state.resize(*physical_size, -1.0);
+                frontend.resize(*physical_size, -1.0);
             },
             WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor, .. } => {
-                state.resize(**new_inner_size, *scale_factor as f32);
+                frontend.resize(**new_inner_size, *scale_factor as f32);
             },
             WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
                 input: KeyboardInput {
@@ -156,17 +102,27 @@ fn main() {
                     ..
                 },
                 ..
-            } => { state.input(key_state, key); },
+            } => {
+                if *key_state == ElementState::Pressed {
+                    if *key == VirtualKeyCode::Space {
+                        backend.send(" ");
+                    } else if *key == VirtualKeyCode::Return {
+                        backend.send("\r");
+                    } else {
+                        let c = format!("{:?}", key).to_lowercase();
+                        backend.send(&c);
+                    }
+                }
+            },
             _ => {}
         },
         Event::MainEventsCleared => {
             window.request_redraw();
         },
         Event::RedrawRequested(_) => {
-            state.update();
-            match state.render() {
+            match frontend.render() {
                 Ok(_) => {},
-                Err(SurfaceError::Lost) => state.resize(state.size, -1.0),
+                Err(SurfaceError::Lost) => frontend.resize(frontend.size, -1.0),
                 Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("{:?}", e)
             }
