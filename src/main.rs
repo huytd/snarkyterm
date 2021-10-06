@@ -56,12 +56,15 @@ impl State {
         }
     }
 
-    fn resize(&mut self, new_size: PhysicalSize<u32>) {
+    fn resize(&mut self, new_size: PhysicalSize<u32>, scale_factor: f32) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
+            if scale_factor > 0.0 {
+                self.scale_factor = scale_factor;
+            }
         }
     }
 
@@ -133,10 +136,10 @@ fn main() {
             window_id
         } if window_id == window.id() => match event {
             WindowEvent::Resized(physical_size) => {
-                state.resize(*physical_size);
+                state.resize(*physical_size, -1.0);
             },
-            WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                state.resize(**new_inner_size);
+            WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor, .. } => {
+                state.resize(**new_inner_size, *scale_factor as f32);
             },
             WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
                 input: KeyboardInput {
@@ -163,7 +166,7 @@ fn main() {
             state.update();
             match state.render() {
                 Ok(_) => {},
-                Err(SurfaceError::Lost) => state.resize(state.size),
+                Err(SurfaceError::Lost) => state.resize(state.size, -1.0),
                 Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("{:?}", e)
             }
