@@ -1,10 +1,8 @@
-use wgpu::{Adapter, Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
+use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
 use winit::{dpi::PhysicalSize, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, window::{Window, WindowBuilder}};
 
 struct State {
-    instance: Instance,
-    adapter: Adapter,
     surface: Surface,
     device: Device,
     queue: Queue,
@@ -49,7 +47,7 @@ impl State {
         let staging_belt = StagingBelt::new(1024);
 
         Self {
-            instance, adapter, surface, device, queue, config, size, glyph_brush, staging_belt,
+            surface, device, queue, config, size, glyph_brush, staging_belt,
             data: "Press any key".to_string()
         }
     }
@@ -63,8 +61,8 @@ impl State {
         }
     }
 
-    fn input(&mut self, key: &VirtualKeyCode) {
-        println!("KEY PRESSED: {:?}", key);
+    fn input(&mut self, key_state: &ElementState, key: &VirtualKeyCode) {
+        self.data = format!("Key {:?} {:?}", key, key_state);
     }
 
     fn update(&mut self) {
@@ -141,12 +139,12 @@ fn main() {
             } => *control_flow = ControlFlow::Exit,
             WindowEvent::KeyboardInput {
                 input: KeyboardInput {
-                    state: ElementState::Pressed,
+                    state: key_state,
                     virtual_keycode: Some(key),
                     ..
                 },
                 ..
-            } => { state.input(key); },
+            } => { state.input(key_state, key); },
             _ => {}
         },
         Event::MainEventsCleared => {
