@@ -1,6 +1,8 @@
 use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
-use winit::{dpi::PhysicalSize, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, window::{Window, WindowBuilder}};
+use winit::{dpi::{self, PhysicalSize}, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::{Window, WindowBuilder}};
+
+const TITLEBAR_MARGIN: f32 = 30.0;
 
 struct State {
     surface: Surface,
@@ -10,7 +12,8 @@ struct State {
     size: PhysicalSize<u32>,
     glyph_brush: GlyphBrush<()>,
     staging_belt: StagingBelt,
-    data: String
+    data: String,
+    scale_factor: f32
 }
 
 impl State {
@@ -48,7 +51,8 @@ impl State {
 
         Self {
             surface, device, queue, config, size, glyph_brush, staging_belt,
-            data: "Press any key".to_string()
+            data: "Press any key".to_string(),
+            scale_factor: window.scale_factor() as f32
         }
     }
 
@@ -81,9 +85,9 @@ impl State {
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.01,
+                            g: 0.01,
+                            b: 0.01,
                             a: 1.0
                         }),
                         store: true
@@ -94,11 +98,11 @@ impl State {
         }
 
         self.glyph_brush.queue(Section {
-            screen_position: (30.0, 30.0),
+            screen_position: (30.0, 30.0 + TITLEBAR_MARGIN),
             bounds: (self.size.width as f32, self.size.height as f32),
             text: vec![Text::new(&self.data)
-                .with_color([0.0, 0.0, 0.0, 1.0])
-                .with_scale(40.0)],
+                .with_color([1.0, 1.0, 1.0, 1.0])
+                .with_scale(20.0 * self.scale_factor)],
             ..Section::default()
         });
 
@@ -115,7 +119,12 @@ fn main() {
     env_logger::init();
 
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_titlebar_transparent(true)
+        .with_fullsize_content_view(true)
+        .with_title_hidden(true)
+        .build(&event_loop)
+        .unwrap();
     let mut state = pollster::block_on(State::new(&window));
 
     event_loop.run(move |event, _, control_flow| match event {
