@@ -21,7 +21,7 @@ text buffer to the screen.
 
 # Oct 6th, 2021
 
-![](./_meta/oct-05.gif)
+![](./_meta/oct-06.gif)
 
 After seeing my screenshot, friend of mine showed me a version of his own terminal emulator
 ([mos/terminal](https://github.com/MQuy/mos/tree/master/src/apps/terminal)), I know what you're
