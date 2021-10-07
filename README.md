@@ -8,3 +8,5 @@ pty -> AppBackend
            v
        Event Loop --> AppFrontend -> Render
 ```
+
+See [DEVLOG](DEVLOG.md) for the progress.
