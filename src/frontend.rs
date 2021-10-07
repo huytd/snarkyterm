@@ -70,7 +70,11 @@ impl AppFrontend {
 
     pub fn set_data(&mut self, buf: &mut Vec<u8>) {
         if self.buffer.len() < 1920 {
-            self.buffer.append(buf);
+            if buf == &[8, 27, 91, 75] {
+                self.buffer.pop();
+            } else if buf != &[7] {
+                self.buffer.append(buf);
+            }
         } else {
             self.buffer = buf.to_vec();
         }
@@ -138,7 +142,6 @@ impl AppFrontend {
                 j += 1;
                 col += 1.0;
             }
-            println!("");
             i += 1;
             row += 1.0;
             j = 0;

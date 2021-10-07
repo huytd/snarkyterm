@@ -67,6 +67,8 @@ fn main() {
                         backend.send(".");
                     } else if *key == VirtualKeyCode::Slash {
                         backend.send("/");
+                    } else if *key == VirtualKeyCode::Back {
+                        backend.send("\x7F");
                     } else {
                         let c = format!("{:?}", key).to_lowercase();
                         backend.send(&c);
