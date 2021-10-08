@@ -48,3 +48,35 @@ Some keys still not being handled, like the Fn row or the Home/End/PgUp/PgDown k
 Next is to handle some control characters when reading back from `ptm`.
 
 Btw, terminal exit command now being handled properly.
+
+# Oct 8th, 2021
+Some update to the module names for better understanding and organization:
+
+- **Shell:** It was `AppBackend`, is the module that hold the `pty` pair, send commands to `ptm` and read from `ptm`.
+- **Terminal:** It was `AppFrontend`, is the module that provide display and most of the interaction.
+- **Cursor:** The cursor in the terminal, new characters coming from the Shell/`ptm` will be inserted at cursor position.
+- **Characters:** The module provide some utilities to work with characters, like translate key code to input chars,...
+
+```
+┌────────┐        ┌──────────────────┐
+│  ptm   │◀──────▶│  device::Shell   │
+└─┬────▲─┘        └──────┬────▲──────┘
+  │    │               read   │
+┌─▼────┴─┐               │  write
+│  pts   │        ┏━━━━━━▼━━━━┻━━━━━━┓
+├────────┤        ┃ winit::EventLoop ┃
+│ $SHELL │        ┗━━━━━━━━┳━━━━━━━━━┛
+└────────┘                 │udpate
+                           │
+                  ┌────────▼─────────┐
+                  │terminal::Terminal│
+                  └─────┬────────────┘
+                        │
+                  ┌─────▼────┐
+                  │  Cursor  │
+                  ├──────────┴────┐
+                  │ CharacterGrid │
+                  └───────────────┘
+```
+
+Btw, look like I just noticed a bug :/ (See [#1])

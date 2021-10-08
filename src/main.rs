@@ -2,11 +2,14 @@ use characters::InputChar;
 use wgpu::SurfaceError;
 use winit::{event::{ElementState, Event, KeyboardInput, ModifiersState, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
 
+mod constants;
+mod cursor;
 mod characters;
-mod frontend;
-mod backend;
-use frontend::AppFrontend;
-use backend::{AppBackend, CustomEvent};
+mod terminal;
+mod device;
+
+use terminal::Terminal;
+use device::{Shell, CustomEvent};
 
 fn main() {
     env_logger::init();
@@ -21,8 +24,8 @@ fn main() {
 
     let proxy = event_loop.create_proxy();
 
-    let mut frontend = pollster::block_on(AppFrontend::new(&window));
-    let mut backend = AppBackend::new(proxy);
+    let mut terminal = pollster::block_on(Terminal::new(&window));
+    let mut shell = Shell::new(proxy);
 
     let mut modifiers: ModifiersState = ModifiersState::default();
 
@@ -30,7 +33,7 @@ fn main() {
         Event::UserEvent(event) => {
             match event {
                 CustomEvent::StdOut(mut data) => {
-                    frontend.set_data(&mut data);
+                    terminal.set_data(&mut data);
                 },
                 CustomEvent::Terminate => {
                     *control_flow = ControlFlow::Exit;
@@ -42,10 +45,10 @@ fn main() {
             window_id
         } if window_id == window.id() => match event {
             WindowEvent::Resized(physical_size) => {
-                frontend.resize(*physical_size, -1.0);
+                terminal.resize(*physical_size, -1.0);
             },
             WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor, .. } => {
-                frontend.resize(**new_inner_size, *scale_factor as f32);
+                terminal.resize(**new_inner_size, *scale_factor as f32);
             },
             WindowEvent::ModifiersChanged(current_modifiers) => modifiers = *current_modifiers,
             WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
@@ -59,7 +62,7 @@ fn main() {
             } => {
                 if *key_state == ElementState::Pressed {
                     if let Some(c) = InputChar::from(*key, modifiers) {
-                        backend.send(&[c as u8]);
+                        shell.send(&[c as u8]);
                     }
                 }
             },
@@ -69,9 +72,9 @@ fn main() {
             window.request_redraw();
         },
         Event::RedrawRequested(_) => {
-            match frontend.render() {
+            match terminal.render() {
                 Ok(_) => {},
-                Err(SurfaceError::Lost) => frontend.resize(frontend.size, -1.0),
+                Err(SurfaceError::Lost) => terminal.resize(terminal.size, -1.0),
                 Err(SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
                 Err(e) => eprintln!("{:?}", e)
             }

@@ -1,12 +1,10 @@
-use std::io::Read;
-
 use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
 use winit::{dpi::PhysicalSize, window::Window};
 
-const TITLEBAR_MARGIN: f32 = 30.0;
+use crate::{constants::TITLEBAR_MARGIN, cursor::Cursor};
 
-pub struct AppFrontend {
+pub struct Terminal {
     pub surface: Surface,
     pub device: Device,
     pub queue: Queue,
@@ -16,9 +14,10 @@ pub struct AppFrontend {
     pub staging_belt: StagingBelt,
     pub buffer: Vec<u8>,
     pub scale_factor: f32,
+    pub cursor: Cursor
 }
 
-impl AppFrontend {
+impl Terminal {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
@@ -54,7 +53,8 @@ impl AppFrontend {
         Self {
             surface, device, queue, config, size, glyph_brush, staging_belt,
             scale_factor: window.scale_factor() as f32,
-            buffer: vec![]
+            buffer: vec![],
+            cursor: Cursor::new()
         }
     }
 

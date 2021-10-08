@@ -8,11 +8,11 @@ pub enum CustomEvent {
     Terminate
 }
 
-pub struct AppBackend {
+pub struct Shell {
     pair: PtyPair
 }
 
-impl AppBackend {
+impl Shell {
     pub fn new(proxy: EventLoopProxy<CustomEvent>) -> Self {
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {

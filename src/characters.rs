@@ -1,5 +1,8 @@
 use winit::event::{ModifiersState, VirtualKeyCode::{self, *}};
 
+pub const TAB_CHAR: char = 0x09 as char;
+pub const BACK_CHAR: char = 0x08 as char;
+
 pub struct InputChar {}
 impl InputChar {
     pub fn from(key: VirtualKeyCode, modifiers: ModifiersState) -> Option<char> {
@@ -107,8 +110,8 @@ impl InputChar {
             Y => Some('y'),
             Z => Some('z'),
 
-            Tab => Some(0x09 as char),
-            Back => Some(0x08 as char),
+            Tab => Some(TAB_CHAR),
+            Back => Some(BACK_CHAR),
             Space => Some(' '),
 
             Minus if modifiers.shift() => Some('_'),
