@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
 use winit::{dpi::PhysicalSize, window::Window};
@@ -69,14 +71,10 @@ impl AppFrontend {
     }
 
     pub fn set_data(&mut self, buf: &mut Vec<u8>) {
-        if self.buffer.len() < 1920 {
-            if buf == &[8, 27, 91, 75] {
-                self.buffer.pop();
-            } else if buf != &[7] {
-                self.buffer.append(buf);
-            }
-        } else {
-            self.buffer = buf.to_vec();
+        if buf == &[8, 27, 91, 75] {
+            self.buffer.pop();
+        } else if buf != &[7] {
+            self.buffer.append(buf);
         }
     }
 

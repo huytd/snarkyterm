@@ -1,6 +1,8 @@
+use characters::InputChar;
 use wgpu::SurfaceError;
-use winit::{dpi::{LogicalSize, PhysicalSize}, event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
+use winit::{event::{ElementState, Event, KeyboardInput, ModifiersState, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
 
+mod characters;
 mod frontend;
 mod backend;
 use frontend::AppFrontend;
@@ -22,11 +24,16 @@ fn main() {
     let mut frontend = pollster::block_on(AppFrontend::new(&window));
     let mut backend = AppBackend::new(proxy);
 
+    let mut modifiers: ModifiersState = ModifiersState::default();
+
     event_loop.run(move |event, _, control_flow| match event {
         Event::UserEvent(event) => {
             match event {
                 CustomEvent::StdOut(mut data) => {
                     frontend.set_data(&mut data);
+                },
+                CustomEvent::Terminate => {
+                    *control_flow = ControlFlow::Exit;
                 }
             }
         },
@@ -40,14 +47,8 @@ fn main() {
             WindowEvent::ScaleFactorChanged { new_inner_size, scale_factor, .. } => {
                 frontend.resize(**new_inner_size, *scale_factor as f32);
             },
-            WindowEvent::CloseRequested | WindowEvent::KeyboardInput {
-                input: KeyboardInput {
-                    state: ElementState::Pressed,
-                    virtual_keycode: Some(VirtualKeyCode::Escape),
-                    ..
-                },
-                ..
-            } => *control_flow = ControlFlow::Exit,
+            WindowEvent::ModifiersChanged(current_modifiers) => modifiers = *current_modifiers,
+            WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
             WindowEvent::KeyboardInput {
                 input: KeyboardInput {
                     state: key_state,
@@ -57,21 +58,8 @@ fn main() {
                 ..
             } => {
                 if *key_state == ElementState::Pressed {
-                    if *key == VirtualKeyCode::Space {
-                        backend.send(" ");
-                    } else if *key == VirtualKeyCode::Return {
-                        backend.send("\r");
-                    } else if *key == VirtualKeyCode::Minus {
-                        backend.send("-");
-                    } else if *key == VirtualKeyCode::Period {
-                        backend.send(".");
-                    } else if *key == VirtualKeyCode::Slash {
-                        backend.send("/");
-                    } else if *key == VirtualKeyCode::Back {
-                        backend.send("\x7F");
-                    } else {
-                        let c = format!("{:?}", key).to_lowercase();
-                        backend.send(&c);
+                    if let Some(c) = InputChar::from(*key, modifiers) {
+                        backend.send(&[c as u8]);
                     }
                 }
             },

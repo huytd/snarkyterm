@@ -4,7 +4,8 @@ use winit::event_loop::EventLoopProxy;
 
 #[derive(Debug, Clone)]
 pub enum CustomEvent {
-    StdOut(Vec<u8>)
+    StdOut(Vec<u8>),
+    Terminate
 }
 
 pub struct AppBackend {
@@ -29,6 +30,7 @@ impl AppBackend {
             let mut buf = [0u8; 128];
             while let Ok(len) = reader.read(&mut buf) {
                 if len == 0 {
+                    sender.send_event(CustomEvent::Terminate).ok();
                     break;
                 }
                 let vbuf = buf[0..len].to_vec();
@@ -42,7 +44,7 @@ impl AppBackend {
         }
     }
 
-    pub fn send(&mut self, data: &str) {
-        write!(self.pair.master, "{}", data).unwrap();
+    pub fn send(&mut self, data: &[u8]) {
+        self.pair.master.write(data).ok();
     }
 }
