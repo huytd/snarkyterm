@@ -20,6 +20,12 @@ impl Cursor {
         Self { row: 0, col: 0 }
     }
 
+    pub fn is_cursor_position(&self, row: f32, col: f32) -> bool {
+        let row = row as i32;
+        let col = col as i32;
+        row == self.row && col == self.col
+    }
+
     pub fn move_to(&mut self, direction: CursorDirection) {
         match direction {
            CursorDirection::Up => {
@@ -45,7 +51,8 @@ impl Cursor {
             CursorDirection::Right => {
                 if self.col < TERMINAL_COLS {
                     self.col += 1;
-                    // TODO: Move to next line
+                } else {
+                    self.move_to(CursorDirection::NextLine);
                 }
             },
             CursorDirection::NextLine => {

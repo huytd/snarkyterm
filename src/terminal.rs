@@ -2,7 +2,12 @@ use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, 
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{constants::TITLEBAR_MARGIN, cursor::Cursor};
+use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
+
+const BG_CHAR: &str = "█";
+const BGR_COLOR: [f32; 4] = [0.02, 0.02, 0.02, 1.0];
+const CUR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+const CHR_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 pub struct Terminal {
     pub surface: Surface,
@@ -71,13 +76,40 @@ impl Terminal {
     }
 
     pub fn set_data(&mut self, buf: &mut Vec<u8>) {
-        if buf == &[8, 27, 91, 75] {
-            self.buffer.pop();
-        } else if buf != &[7] {
-            self.buffer.append(buf);
+        for b in buf {
+            let b = *b as char;
+            if b == BACK_CHAR {
+                self.buffer.pop();
+            } else if b == ESC_CHAR {
+                return;
+            } else if b != CR_CHAR && b != BELL_CHAR {
+                self.buffer.push(b as u8);
+            }
         }
     }
 
+    pub fn put_char(&mut self, c: &str, color: [f32; 4], row: f32, col: f32) {
+        let cell_width = 9.0 * self.scale_factor;
+        let cell_height = 20.0 * self.scale_factor;
+        let x = col * cell_width;
+        let y = row * cell_height;
+        self.glyph_brush.queue(Section {
+            screen_position: (30.0 + x, (30.0 + TITLEBAR_MARGIN) + y),
+            bounds: (self.size.width as f32, self.size.height as f32),
+            text: vec![Text::new(c)
+                .with_color(color)
+                .with_scale(cell_height)],
+                ..Section::default()
+        });
+    }
+
+    pub fn fill_line_at(&mut self, row: f32, col: f32) {
+        let mut col = col;
+        while col < TERMINAL_COLS as f32 {
+            self.put_char(BG_CHAR, BGR_COLOR, row, col);
+            col += 1.0;
+        }
+    }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
         let output = self.surface.get_current_frame()?.output;
@@ -103,46 +135,32 @@ impl Terminal {
             });
         }
 
-        let cell_width = 10.0 * self.scale_factor;
-        let cell_height = 20.0 * self.scale_factor;
 
-        let mut i = 0;
-        let mut j = 0;
         let mut row = 0.0;
         let mut col = 0.0;
-        while i < 24 {
-            while j < 80 {
-                let k = i * 80 + j;
-                if self.buffer.len() > k {
-                    let c = String::from_utf8(vec![self.buffer[k]]).unwrap();
-                    if c != "\r" && c != "\n" && c != "\t" {
-                        let x = col * cell_width;
-                        let y = row * cell_height;
-                        self.glyph_brush.queue(Section {
-                            screen_position: (30.0 + x, (30.0 + TITLEBAR_MARGIN) + y),
-                            bounds: (self.size.width as f32, self.size.height as f32),
-                            text: vec![Text::new(&c)
-                                .with_color([1.0, 1.0, 1.0, 1.0])
-                                .with_scale(cell_height)],
-                                ..Section::default()
-                        });
-                    }
-                    if c == "\n" {
-                        col = 0.0;
-                        row += 1.0;
-                        j += 1;
-                        continue;
-                    }
-                    if c == "\t" {
-                        col += (col as i32 / 20) as f32;
-                    }
+        let mut i = 0;
+        while row < TERMINAL_ROWS as f32 {
+            while col < TERMINAL_COLS as f32 {
+                let b = if i < self.buffer.len() { self.buffer[i] } else { 0 };
+                let c = String::from_utf8(vec![b]).unwrap();
+                // Draw background or cursor
+                if i == self.buffer.len() {
+                    self.put_char(BG_CHAR, CUR_COLOR, row, col);
+                } else {
+                    self.put_char(BG_CHAR, BGR_COLOR, row, col);
                 }
-                j += 1;
+                // Draw character
+                if c.starts_with("\n") {
+                    self.fill_line_at(row, col);
+                    col = -1.0;
+                    row += 1.0;
+                } else {
+                    self.put_char(&c, CHR_COLOR, row, col);
+                }
+                i += 1;
                 col += 1.0;
             }
-            i += 1;
             row += 1.0;
-            j = 0;
             col = 0.0;
         }
 

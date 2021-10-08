@@ -1,7 +1,10 @@
 use winit::event::{ModifiersState, VirtualKeyCode::{self, *}};
 
-pub const TAB_CHAR: char = 0x09 as char;
-pub const BACK_CHAR: char = 0x08 as char;
+pub const TAB_CHAR: char = 9 as char;
+pub const BACK_CHAR: char = 8 as char;
+pub const ESC_CHAR: char = 27 as char;
+pub const CR_CHAR: char = 13 as char;
+pub const BELL_CHAR: char = 7 as char;
 
 pub struct InputChar {}
 impl InputChar {

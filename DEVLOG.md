@@ -50,6 +50,9 @@ Next is to handle some control characters when reading back from `ptm`.
 Btw, terminal exit command now being handled properly.
 
 # Oct 8th, 2021
+
+![](./_meta/oct-08.png)
+
 Some update to the module names for better understanding and organization:
 
 - **Shell:** It was `AppBackend`, is the module that hold the `pty` pair, send commands to `ptm` and read from `ptm`.
@@ -79,4 +82,10 @@ Some update to the module names for better understanding and organization:
                   └───────────────┘
 ```
 
-Btw, look like I just noticed a bug :/ (See [#1])
+Howerver, the current implementation not really using any cursor, and the rendered cursor is the fake one.
+
+The terminal now also draw the background of each character of the grid. Although this might need to get refactored
+later on if the performance is not great.
+
+The `set_data` method of the `terminal` now being changed to be able to handle control characters later on. Next up
+will be scrolling and a proper cursor handling.
