@@ -19,6 +19,8 @@ receiving user's input. I'm not sure if I should write to `ptm` every keystroke 
 but I guess that's how it should. So the problem must be with the way I render a single big ass
 text buffer to the screen.
 
+2dc54bc
+
 # Oct 6th, 2021
 
 ![](./_meta/oct-06.gif)
@@ -39,6 +41,8 @@ The performance improved a lot! And another problem just popped up, how to handl
 I mean, where should I handle it, in `AppBackend` or `AppFrontend`? And I think I need an actual
 `Cursor`.
 
+bd9d4a5
+
 # Oct 7th, 2021
 Not much progress for today, I built a key code to character mapping, so the terminal can now
 send proper characters to the `ptm`. It can handle things like `Ctrl + C` as well as the tab complete! Yay.
@@ -48,6 +52,8 @@ Some keys still not being handled, like the Fn row or the Home/End/PgUp/PgDown k
 Next is to handle some control characters when reading back from `ptm`.
 
 Btw, terminal exit command now being handled properly.
+
+acfaee9
 
 # Oct 8th, 2021
 
@@ -89,3 +95,5 @@ later on if the performance is not great.
 
 The `set_data` method of the `terminal` now being changed to be able to handle control characters later on. Next up
 will be scrolling and a proper cursor handling.
+
+82f1712
