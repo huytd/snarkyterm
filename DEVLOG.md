@@ -19,7 +19,7 @@ receiving user's input. I'm not sure if I should write to `ptm` every keystroke 
 but I guess that's how it should. So the problem must be with the way I render a single big ass
 text buffer to the screen.
 
-2dc54bc
+[2dc54bc](https://github.com/huytd/snarkyterm/commit/2dc54bc40d085e1367fbf67b012b3eaa54e993d6)
 
 # Oct 6th, 2021
 
@@ -41,7 +41,7 @@ The performance improved a lot! And another problem just popped up, how to handl
 I mean, where should I handle it, in `AppBackend` or `AppFrontend`? And I think I need an actual
 `Cursor`.
 
-bd9d4a5
+[bd9d4a5](https://github.com/huytd/snarkyterm/commit/bd9d4a5)
 
 # Oct 7th, 2021
 Not much progress for today, I built a key code to character mapping, so the terminal can now
@@ -53,7 +53,7 @@ Next is to handle some control characters when reading back from `ptm`.
 
 Btw, terminal exit command now being handled properly.
 
-acfaee9
+[acfaee9](https://github.com/huytd/snarkyterm/commit/acfaee9)
 
 # Oct 8th, 2021
 
@@ -96,4 +96,4 @@ later on if the performance is not great.
 The `set_data` method of the `terminal` now being changed to be able to handle control characters later on. Next up
 will be scrolling and a proper cursor handling.
 
-82f1712
+[82f1712](https://github.com/huytd/snarkyterm/commit/82f1712)
