@@ -46,3 +46,5 @@ send proper characters to the `ptm`. It can handle things like `Ctrl + C` as wel
 Some keys still not being handled, like the Fn row or the Home/End/PgUp/PgDown keys.
 
 Next is to handle some control characters when reading back from `ptm`.
+
+Btw, terminal exit command now being handled properly.
