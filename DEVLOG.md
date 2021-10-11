@@ -97,3 +97,14 @@ The `set_data` method of the `terminal` now being changed to be able to handle c
 will be scrolling and a proper cursor handling.
 
 [82f1712](https://github.com/huytd/snarkyterm/commit/82f1712)
+
+# Oct 10th, 2021
+
+The change today is small but have a huge impact on the performance, I think. And the terminal now able to automatically
+scroll to the latest line!
+
+For now, I'm batching the rendering by lines (instead of render char by char), this works for now because there's no
+coloring support. Later on, when we're able to parse colors, the rendering should be modified to render by tokens, so
+texts with the same fg and bg color should be rendered at the same time.
+
+[9ab3090](https://github.com/huytd/snarkyterm/commit/9ab3090)
