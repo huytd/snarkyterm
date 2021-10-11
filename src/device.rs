@@ -1,6 +1,8 @@
-use std::{io::Read, thread};
+use std::{io::Read, thread, u16};
 use portable_pty::{CommandBuilder, PtyPair, PtySize, native_pty_system};
 use winit::event_loop::EventLoopProxy;
+
+use crate::constants::{TERMINAL_COLS, TERMINAL_ROWS};
 
 #[derive(Debug, Clone)]
 pub enum CustomEvent {
@@ -16,8 +18,8 @@ impl Shell {
     pub fn new(proxy: EventLoopProxy<CustomEvent>) -> Self {
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {
-            rows: 24,
-            cols: 80,
+            rows: TERMINAL_ROWS as u16,
+            cols: TERMINAL_COLS as u16,
             pixel_width: 0,
             pixel_height: 0
         }).unwrap();

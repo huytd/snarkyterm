@@ -2,7 +2,7 @@ use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, 
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
+use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, NEWLINE_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
 
 const BG_CHAR: &str = "█";
 const BGR_COLOR: [f32; 4] = [0.02, 0.02, 0.02, 1.0];
@@ -135,33 +135,22 @@ impl Terminal {
             });
         }
 
+        // TODO: Batch the render by token not line.
+        // For now, we batch the render by line. But this will make
+        // everything on the same line has the same fg and bg.
+        // Fix this after we have the color parser.
 
-        let mut row = 0.0;
-        let mut col = 0.0;
-        let mut i = 0;
-        while row < TERMINAL_ROWS as f32 {
-            while col < TERMINAL_COLS as f32 {
-                let b = if i < self.buffer.len() { self.buffer[i] } else { 0 };
-                let c = String::from_utf8(vec![b]).unwrap();
-                // Draw background or cursor
-                if i == self.buffer.len() {
-                    self.put_char(BG_CHAR, CUR_COLOR, row, col);
-                } else {
-                    self.put_char(BG_CHAR, BGR_COLOR, row, col);
+        let buf = self.buffer.clone();
+        let mut lines = buf.rsplit(|n| *n == NEWLINE_CHAR as u8).take(TERMINAL_ROWS as usize).collect::<Vec<_>>();
+        lines.reverse();
+
+        for row in 0..TERMINAL_ROWS {
+            self.fill_line_at(row as f32, 0.0);
+            if let Some(line) = lines.get(row as usize) {
+                if let Ok(line) = std::str::from_utf8(line) {
+                    self.put_char(line, CHR_COLOR, row as f32, 0.0);
                 }
-                // Draw character
-                if c.starts_with("\n") {
-                    self.fill_line_at(row, col);
-                    col = -1.0;
-                    row += 1.0;
-                } else {
-                    self.put_char(&c, CHR_COLOR, row, col);
-                }
-                i += 1;
-                col += 1.0;
             }
-            row += 1.0;
-            col = 0.0;
         }
 
         self.glyph_brush.draw_queued(&self.device, &mut self.staging_belt, &mut encoder, &view, self.size.width, self.size.height).ok();
