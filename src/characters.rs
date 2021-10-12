@@ -1,6 +1,7 @@
 use winit::event::{ModifiersState, VirtualKeyCode::{self, *}};
 
 pub const NEWLINE_CHAR: char = 10 as char;
+pub const SPACE_CHAR: char = 32 as char;
 pub const TAB_CHAR: char = 9 as char;
 pub const BACK_CHAR: char = 8 as char;
 pub const ESC_CHAR: char = 27 as char;

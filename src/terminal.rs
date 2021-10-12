@@ -4,8 +4,11 @@ use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, 
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, GlyphCruncher, Section, Text, ab_glyph::{self, Rect}};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, NEWLINE_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
+use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, NEWLINE_CHAR, SPACE_CHAR, TAB_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
 
+// REF: https://www.vt100.net/docs/la100-rm/chapter2.html
+
+const TAB_STOP: usize = 8;
 const FONT_SIZE: f32 = 20.0;
 const BG_CHAR: &str = "█";
 const BGR_COLOR: [f32; 4] = [0.02, 0.02, 0.02, 1.0];
@@ -146,7 +149,7 @@ impl Terminal {
         // everything on the same line has the same fg and bg.
         // Fix this after we have the color parser.
 
-        let lines = (&self.buffer).split(|c| *c == 10);
+        let lines = (&self.buffer).split(|c| *c == NEWLINE_CHAR as u8);
         let mut display_lines: Vec<Vec<u8>> = Vec::with_capacity(TERMINAL_ROWS as usize);
         for line in lines {
           let mut line_buffer: Vec<u8> = Vec::with_capacity(TERMINAL_COLS as usize);
@@ -154,7 +157,15 @@ impl Terminal {
             if line_buffer.len() >= TERMINAL_COLS as usize {
               line_buffer.clear();
             }
-            line_buffer.push(*chr);
+            if *chr == TAB_CHAR as u8 {
+                let cur = line_buffer.len();
+                let next_pos = (1 + cur / TAB_STOP) * TAB_STOP;
+                for _ in 0..(next_pos - cur) {
+                    line_buffer.push(SPACE_CHAR as u8);
+                }
+            } else {
+                line_buffer.push(*chr);
+            }
           }
           if display_lines.len() >= TERMINAL_ROWS as usize {
             display_lines.remove(0);
