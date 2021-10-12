@@ -1,9 +1,12 @@
+use std::usize;
+
 use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, Features, Instance, Limits, LoadOp, Operations, PowerPreference, Queue, RenderPassColorAttachment, RenderPassDescriptor, RequestAdapterOptions, Surface, SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureViewDescriptor, util::StagingBelt};
-use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, Section, Text, ab_glyph};
+use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, GlyphCruncher, Section, Text, ab_glyph::{self, Rect}};
 use winit::{dpi::PhysicalSize, window::Window};
 
 use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, NEWLINE_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
 
+const FONT_SIZE: f32 = 20.0;
 const BG_CHAR: &str = "█";
 const BGR_COLOR: [f32; 4] = [0.02, 0.02, 0.02, 1.0];
 const CUR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
@@ -19,7 +22,8 @@ pub struct Terminal {
     pub staging_belt: StagingBelt,
     pub buffer: Vec<u8>,
     pub scale_factor: f32,
-    pub cursor: Cursor
+    pub cursor: Cursor,
+    pub cell_size: Rect,
 }
 
 impl Terminal {
@@ -51,7 +55,8 @@ impl Terminal {
 
         let render_format = TextureFormat::Bgra8UnormSrgb;
         let font = ab_glyph::FontArc::try_from_slice(include_bytes!("iosevka.ttf")).unwrap();
-        let glyph_brush = GlyphBrushBuilder::using_font(font).build(&device, render_format);
+        let mut glyph_brush = GlyphBrushBuilder::using_font(font).build(&device, render_format);
+        let bounds = glyph_brush.glyph_bounds(Section::default().add_text(Text::new("A").with_scale(FONT_SIZE))).unwrap();
 
         let staging_belt = StagingBelt::new(1024);
 
@@ -59,6 +64,7 @@ impl Terminal {
             surface, device, queue, config, size, glyph_brush, staging_belt,
             scale_factor: window.scale_factor() as f32,
             buffer: vec![],
+            cell_size: bounds,
             cursor: Cursor::new()
         }
     }
@@ -89,12 +95,12 @@ impl Terminal {
     }
 
     pub fn put_char(&mut self, c: &str, color: [f32; 4], row: f32, col: f32) {
-        let cell_width = 9.0 * self.scale_factor;
-        let cell_height = 20.0 * self.scale_factor;
+        let cell_width = (self.cell_size.width() - 0.1) * self.scale_factor;
+        let cell_height = self.cell_size.height() * self.scale_factor;
         let x = col * cell_width;
         let y = row * cell_height;
         self.glyph_brush.queue(Section {
-            screen_position: (30.0 + x, (30.0 + TITLEBAR_MARGIN) + y),
+            screen_position: (x, (30.0 + TITLEBAR_MARGIN) + y),
             bounds: (self.size.width as f32, self.size.height as f32),
             text: vec![Text::new(c)
                 .with_color(color)
@@ -140,17 +146,29 @@ impl Terminal {
         // everything on the same line has the same fg and bg.
         // Fix this after we have the color parser.
 
-        let buf = self.buffer.clone();
-        let mut lines = buf.rsplit(|n| *n == NEWLINE_CHAR as u8).take(TERMINAL_ROWS as usize).collect::<Vec<_>>();
-        lines.reverse();
+        let lines = (&self.buffer).split(|c| *c == 10);
+        let mut display_lines: Vec<Vec<u8>> = Vec::with_capacity(TERMINAL_ROWS as usize);
+        for line in lines {
+          let mut line_buffer: Vec<u8> = Vec::with_capacity(TERMINAL_COLS as usize);
+          for chr in line {
+            if line_buffer.len() >= TERMINAL_COLS as usize {
+              line_buffer.clear();
+            }
+            line_buffer.push(*chr);
+          }
+          if display_lines.len() >= TERMINAL_ROWS as usize {
+            display_lines.remove(0);
+          }
+          display_lines.push(line_buffer);
+        }
 
         for row in 0..TERMINAL_ROWS {
-            self.fill_line_at(row as f32, 0.0);
-            if let Some(line) = lines.get(row as usize) {
-                if let Ok(line) = std::str::from_utf8(line) {
-                    self.put_char(line, CHR_COLOR, row as f32, 0.0);
-                }
+          self.fill_line_at(row as f32, 0.0);
+          if let Some(line) = display_lines.get(row as usize) {
+            if let Ok(line) = std::str::from_utf8(line) {
+              self.put_char(line, CHR_COLOR, row as f32, 0.0);
             }
+          }
         }
 
         self.glyph_brush.draw_queued(&self.device, &mut self.staging_belt, &mut encoder, &view, self.size.width, self.size.height).ok();

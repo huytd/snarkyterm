@@ -1,6 +1,6 @@
 use characters::InputChar;
 use wgpu::SurfaceError;
-use winit::{event::{ElementState, Event, KeyboardInput, ModifiersState, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
+use winit::{dpi::Size, event::{ElementState, Event, KeyboardInput, ModifiersState, WindowEvent}, event_loop::{ControlFlow, EventLoop}, platform::macos::WindowBuilderExtMacOS, window::WindowBuilder};
 
 mod constants;
 mod cursor;
@@ -19,6 +19,8 @@ fn main() {
         .with_titlebar_transparent(true)
         .with_fullsize_content_view(true)
         .with_title_hidden(true)
+        .with_resizable(false)
+        .with_inner_size(winit::dpi::LogicalSize::new(760.0, 510.0))
         .build(&event_loop)
         .unwrap();
 
