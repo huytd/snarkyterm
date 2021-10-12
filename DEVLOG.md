@@ -108,3 +108,10 @@ coloring support. Later on, when we're able to parse colors, the rendering shoul
 texts with the same fg and bg color should be rendered at the same time.
 
 [9ab3090](https://github.com/huytd/snarkyterm/commit/9ab3090)
+
+# Oct 12th, 2021
+
+Rewrite the algorithm for scrolling the character buffer and calculate the character size before rendering for a more
+accurate grid. This also fixed the issue when rendering long lines, some character got overflowed from the current line.
+
+[3846a89](https://github.com/huytd/snarkyterm/commit/3846a89)
