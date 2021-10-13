@@ -111,7 +111,13 @@ texts with the same fg and bg color should be rendered at the same time.
 
 # Oct 12th, 2021
 
+![](./_meta/oct-12.png)
+
 Rewrite the algorithm for scrolling the character buffer and calculate the character size before rendering for a more
 accurate grid. This also fixed the issue when rendering long lines, some character got overflowed from the current line.
 
+Another update for today is a proper Horizontal Tab handling, the way it works is, for each HT char, the current render
+cursor will be moved to the next tab stop. With this implemented, commands like `ls` now printed correctly.
+
 [3846a89](https://github.com/huytd/snarkyterm/commit/3846a89)
+[132e93f](https://github.com/huytd/snarkyterm/commit/132e93f)
