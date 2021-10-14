@@ -146,3 +146,5 @@ to handle it.
 ![](./_meta/oct-13.gif)
 
 With the parser ready, the first CSI sequence to be implemented is `ESC[2J`, what you got after sending `clear` command :D
+
+[4402407](https://github.com/huytd/snarkyterm/commit/4402407ce41c5b67ec54fde07db846de8c401edf)
