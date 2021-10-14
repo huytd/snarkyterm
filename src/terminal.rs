@@ -4,7 +4,7 @@ use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, 
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, GlyphCruncher, Section, Text, ab_glyph::{self, Rect}};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, EscapeCode, NEWLINE_CHAR, SPACE_CHAR, TAB_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
+use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, EscapeCode, NEWLINE_CHAR, SPACE_CHAR, TAB_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::{Cursor, CursorDirection}, screen::ScreenBuffer};
 
 // REF: https://www.vt100.net/docs/la100-rm/chapter2.html
 
@@ -12,7 +12,7 @@ const TAB_STOP: usize = 8;
 const FONT_SIZE: f32 = 20.0;
 const BG_CHAR: &str = "█";
 const BGR_COLOR: [f32; 4] = [0.02, 0.02, 0.02, 1.0];
-const CUR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+const CUR_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
 const CHR_COLOR: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 pub struct Terminal {
@@ -23,10 +23,11 @@ pub struct Terminal {
     pub size: PhysicalSize<u32>,
     pub glyph_brush: GlyphBrush<()>,
     pub staging_belt: StagingBelt,
-    pub buffer: Vec<u8>,
+    pub buffer: ScreenBuffer,
     pub scale_factor: f32,
     pub cursor: Cursor,
     pub cell_size: Rect,
+    start_line: usize
 }
 
 impl Terminal {
@@ -66,9 +67,10 @@ impl Terminal {
         Self {
             surface, device, queue, config, size, glyph_brush, staging_belt,
             scale_factor: window.scale_factor() as f32,
-            buffer: vec![],
+            buffer: ScreenBuffer::new(TERMINAL_COLS as usize, TERMINAL_ROWS as usize),
             cell_size: bounds,
-            cursor: Cursor::new()
+            cursor: Cursor::new(),
+            start_line: 0
         }
     }
 
@@ -89,7 +91,7 @@ impl Terminal {
         while i < buf.len() {
             let b = buf[i] as char;
             if b == BACK_CHAR {
-                self.buffer.pop();
+                self.cursor.move_to(CursorDirection::Left);
             } else if b == ESC_CHAR {
                 let (remain, param, inter, final_byte) = EscapeCode::parse_csi(&buf[i+1..]);
                 // Process code here
@@ -100,6 +102,13 @@ impl Terminal {
                     ("", "", 'J') | ("0", "", 'J') | ("1", "", 'J') | ("2", "", 'J') => {
                         // Just clear everything for now
                         self.buffer.clear();
+                        self.start_line = 0;
+                    },
+                    ("", "", 'K') => {
+                        self.buffer.set_char_at(0, self.cursor.row, self.cursor.col);
+                    },
+                    ("", "", 'H') => {
+                        self.cursor.move_to(CursorDirection::BOF);
                     },
                     _ => println!("Unhandled CSI sequence: [{}{}{}", param, inter, final_byte)
                 }
@@ -109,8 +118,24 @@ impl Terminal {
                 } else {
                     i += 1;
                 }
-            } else if b != CR_CHAR && b != BELL_CHAR {
-                self.buffer.push(b as u8);
+            } else if b != BELL_CHAR {
+                if b == NEWLINE_CHAR {
+                    self.cursor.move_to(CursorDirection::NextLine);
+                } else if b == CR_CHAR {
+                    self.cursor.move_to(CursorDirection::BOL);
+                } else if b == TAB_CHAR {
+                    let next = (1 + self.cursor.col / TAB_STOP) * TAB_STOP;
+                    for _ in 0..(next - self.cursor.col) {
+                        self.buffer.set_char_at(SPACE_CHAR as u8, self.cursor.row, self.cursor.col);
+                        self.cursor.move_to(CursorDirection::Right);
+                    }
+                } else {
+                    self.buffer.set_char_at(b as u8, self.cursor.row, self.cursor.col);
+                    self.cursor.move_to(CursorDirection::Right);
+                }
+                if self.cursor.row >= self.start_line + TERMINAL_ROWS as usize {
+                    self.start_line = 1 + self.cursor.row - TERMINAL_ROWS as usize;
+                }
             }
             i += 1;
         }
@@ -129,14 +154,6 @@ impl Terminal {
                 .with_scale(cell_height)],
                 ..Section::default()
         });
-    }
-
-    pub fn fill_line_at(&mut self, row: f32, col: f32) {
-        let mut col = col;
-        while col < TERMINAL_COLS as f32 {
-            self.put_char(BG_CHAR, BGR_COLOR, row, col);
-            col += 1.0;
-        }
     }
 
     pub fn render(&mut self) -> Result<(), SurfaceError> {
@@ -163,43 +180,15 @@ impl Terminal {
             });
         }
 
-        // TODO: Batch the render by token not line.
-        // For now, we batch the render by line. But this will make
-        // everything on the same line has the same fg and bg.
-        // Fix this after we have the color parser.
-
-        let lines = (&self.buffer).split(|c| *c == NEWLINE_CHAR as u8);
-        let mut display_lines: Vec<Vec<u8>> = Vec::with_capacity(TERMINAL_ROWS as usize);
-        for line in lines {
-          let mut line_buffer: Vec<u8> = Vec::with_capacity(TERMINAL_COLS as usize);
-          for chr in line {
-            if line_buffer.len() >= TERMINAL_COLS as usize {
-              line_buffer.clear();
+        for row in 0..TERMINAL_ROWS as usize {
+            for col in 0..TERMINAL_COLS as usize {
+                let c = self.buffer.get_char_at(row + self.start_line, col) as char;
+                self.put_char(BG_CHAR, BGR_COLOR, row as f32, col as f32);
+                self.put_char(&c.to_string(), CHR_COLOR, row as f32, col as f32);
             }
-            if *chr == TAB_CHAR as u8 {
-                let cur = line_buffer.len();
-                let next_pos = (1 + cur / TAB_STOP) * TAB_STOP;
-                for _ in 0..(next_pos - cur) {
-                    line_buffer.push(SPACE_CHAR as u8);
-                }
-            } else {
-                line_buffer.push(*chr);
-            }
-          }
-          if display_lines.len() >= TERMINAL_ROWS as usize {
-            display_lines.remove(0);
-          }
-          display_lines.push(line_buffer);
         }
 
-        for row in 0..TERMINAL_ROWS {
-          self.fill_line_at(row as f32, 0.0);
-          if let Some(line) = display_lines.get(row as usize) {
-            if let Ok(line) = std::str::from_utf8(line) {
-              self.put_char(line, CHR_COLOR, row as f32, 0.0);
-            }
-          }
-        }
+        self.put_char(BG_CHAR, CUR_COLOR, (self.cursor.row - self.start_line) as f32, self.cursor.col as f32);
 
         self.glyph_brush.draw_queued(&self.device, &mut self.staging_belt, &mut encoder, &view, self.size.width, self.size.height).ok();
         self.staging_belt.finish();

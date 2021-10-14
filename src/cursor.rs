@@ -7,23 +7,18 @@ pub enum CursorDirection {
     Right,
     NextLine,
     BOL,
-    EOL
+    EOL,
+    BOF
 }
 
 pub struct Cursor {
-    pub row: i32,
-    pub col: i32
+    pub row: usize,
+    pub col: usize
 }
 
 impl Cursor {
     pub fn new() -> Self {
         Self { row: 0, col: 0 }
-    }
-
-    pub fn is_cursor_position(&self, row: f32, col: f32) -> bool {
-        let row = row as i32;
-        let col = col as i32;
-        row == self.row && col == self.col
     }
 
     pub fn move_to(&mut self, direction: CursorDirection) {
@@ -36,11 +31,7 @@ impl Cursor {
                 }
             },
             CursorDirection::Down => {
-                if self.row < TERMINAL_ROWS {
-                    self.row += 1;
-                } else {
-                    self.move_to(CursorDirection::EOL);
-                }
+                self.row += 1;
             }
             CursorDirection::Left => {
                 if self.col > 0 {
@@ -49,7 +40,7 @@ impl Cursor {
                 }
             },
             CursorDirection::Right => {
-                if self.col < TERMINAL_COLS {
+                if self.col < TERMINAL_COLS as usize {
                     self.col += 1;
                 } else {
                     self.move_to(CursorDirection::NextLine);
@@ -63,8 +54,12 @@ impl Cursor {
                 self.col = 0;
             },
             CursorDirection::EOL => {
-                self.col = TERMINAL_COLS;
+                self.col = TERMINAL_COLS as usize;
             },
+            CursorDirection::BOF => {
+                self.row = 0;
+                self.col = 0;
+            }
         }
     }
 }

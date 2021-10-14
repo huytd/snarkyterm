@@ -5,6 +5,7 @@ use winit::{dpi::Size, event::{ElementState, Event, KeyboardInput, ModifiersStat
 mod constants;
 mod cursor;
 mod characters;
+mod screen;
 mod terminal;
 mod device;
 

@@ -148,3 +148,47 @@ to handle it.
 With the parser ready, the first CSI sequence to be implemented is `ESC[2J`, what you got after sending `clear` command :D
 
 [4402407](https://github.com/huytd/snarkyterm/commit/4402407ce41c5b67ec54fde07db846de8c401edf)
+
+# Oct 14th, 2021
+
+Today change make use of the Cursor module that we have created a while ago. The character buffer also being changed a bit
+to make it easier to get and set characters based on the cursor location.
+
+From now, the screen buffer will be pre-allocated with each `W*H` blocks. If there are more space needed, a new `W*H` block
+will be allocated. Since the buffer can be huge, we use a variable called `START_LINE` to determine the render window of the
+terminal. Everything in the range of `[START_LINE..START_LINE + TERMINAL_ROWS]` will be rendered.
+
+```
+                 ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+                             Pre-Allocated
+                 │                         │
+
+                 │                         │
+
+START_LINE ──▶ ┏━╋━━━━━━━━━━━━━━━━━━━━━━━┓ │
+               ┃                         ┃
+               ┃ └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╋ ┘
+               ┃ ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ╋ ┐
+               ┃                         ┃
+               ┃ │ Cursor                ┃ │
+               ┃   ┌┐                    ┃
+               ┃ │ └┘                    ┃ │
+               ┗━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                 │                         │
+
+                 └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+                 ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐
+                               Allocate as
+                 │                  needed │
+
+                 │                         │
+
+                 │                         │
+
+                 └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘
+```
+
+Automatially scrolling will be handled by adjusting `START_LINE` based on its distance to the Cursor location.
+
+With this change, we can now render the cursor correctly, some special chars's behaviorp like `\n` or `\r`, or CSI sequences like
+`ESC[H`, `ESC[K`, `ESC[5A`,... can now be implemented.
