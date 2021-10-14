@@ -192,3 +192,6 @@ Automatially scrolling will be handled by adjusting `START_LINE` based on its di
 
 With this change, we can now render the cursor correctly, some special chars's behaviorp like `\n` or `\r`, or CSI sequences like
 `ESC[H`, `ESC[K`, `ESC[5A`,... can now be implemented.
+
+
+[ff20259](https://github.com/huytd/snarkyterm/commit/ff20259)
