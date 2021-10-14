@@ -121,3 +121,28 @@ cursor will be moved to the next tab stop. With this implemented, commands like 
 
 [3846a89](https://github.com/huytd/snarkyterm/commit/3846a89)
 [132e93f](https://github.com/huytd/snarkyterm/commit/132e93f)
+
+# Oct 13th, 2021
+
+Started working on CSI sequence parser, it's fun to do all this works from scratch, there are too many cases with almost
+zero documentation/specs, lol.
+
+According to Wikipedia, I think a CSI sequence can be parsed into a tuple of `(param, intermediate, final)` bytes like the
+following diagram:
+
+```
+ESC [ <0x30-0x3F>+ <0x20-0x2F>+ <0x40-0x7E>
+            ↓           ↓           ↓
+          param    intermediate   final
+```
+
+For example, with a sequence like `ESC[5A` to move cursor up 5 lines, it would be parsed as `(5, _, A)`. Longer and more
+complex commands like settting foreground color `ESC[38;5;94m` would be parsed as `(38;5;94, _, m)`.
+
+At first, I think I would use `nom` to write a parser, but I just feel lazy, so I wrote something similar to the idea of
+nom for parsing, luckily, the structure of the CSI sequence is not complex enough, so a simple `iter` chain would be enough
+to handle it.
+
+![](./_meta/oct-13.gif)
+
+With the parser ready, the first CSI sequence to be implemented is `ESC[2J`, what you got after sending `clear` command :D

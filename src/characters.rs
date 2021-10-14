@@ -122,6 +122,7 @@ impl InputChar {
             Minus if modifiers.shift() => Some('_'),
             Minus => Some('-'),
             Plus => Some('+'),
+            Equals if modifiers.shift() => Some('+'),
             Equals => Some('='),
             Grave if modifiers.shift() => Some('~'),
             Grave => Some('`'),
@@ -130,6 +131,7 @@ impl InputChar {
             Backslash if modifiers.shift() => Some('|'),
             Backslash => Some('\\'),
             Colon => Some(':'),
+            Semicolon if modifiers.shift() => Some(':'),
             Semicolon => Some(';'),
             Asterisk => Some('*'),
             Apostrophe if modifiers.shift() => Some('"'),
@@ -147,5 +149,45 @@ impl InputChar {
 
             _ => None
         }
+    }
+}
+
+pub struct EscapeCode {}
+impl EscapeCode {
+    fn parse_param(input: &[u8]) -> (&[u8], Vec<u8>) {
+        if input.len() > 0 {
+            let found: Vec<u8> = input.iter().by_ref().take_while(|&c| *c >= 0x30 && *c <= 0x3F).cloned().collect();
+            let remain = &input[found.len()..];
+            return (remain, found);
+        }
+        (input, vec![])
+    }
+
+    fn parse_intermediates(input: &[u8]) -> (&[u8], Vec<u8>) {
+        if input.len() > 0 {
+            let found: Vec<u8> = input.iter().by_ref().take_while(|&c| *c >= 0x20 && *c <= 0x2F).cloned().collect();
+            let remain = &input[found.len()..];
+            return (remain, found);
+        }
+        (input, vec![])
+    }
+
+    fn parse_final(input: &[u8]) -> (&[u8], u8) {
+        if input.len() > 0 {
+            let found: Vec<u8> = input.iter().by_ref().take_while(|&c| *c >= 0x40 && *c <= 0x7E).cloned().collect();
+            let remain = &input[1..];
+            return (remain, found[0]);
+        }
+        (input, 0)
+    }
+
+    pub fn parse_csi(buf: &[u8]) -> (&[u8], Vec<u8>, Vec<u8>, u8) {
+        if buf.len() > 0 && buf[0] == '[' as u8 {
+            let (remain, param) = Self::parse_param(&buf[1..]);
+            let (remain, intermediates) = Self::parse_intermediates(remain);
+            let (remain, final_byte) = Self::parse_final(remain);
+            return (remain, param, intermediates, final_byte);
+        }
+        (buf, vec![], vec![], 0)
     }
 }

@@ -4,7 +4,7 @@ use wgpu::{Backends, Color, CommandEncoderDescriptor, Device, DeviceDescriptor, 
 use wgpu_glyph::{GlyphBrush, GlyphBrushBuilder, GlyphCruncher, Section, Text, ab_glyph::{self, Rect}};
 use winit::{dpi::PhysicalSize, window::Window};
 
-use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, NEWLINE_CHAR, SPACE_CHAR, TAB_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
+use crate::{characters::{BACK_CHAR, BELL_CHAR, CR_CHAR, ESC_CHAR, EscapeCode, NEWLINE_CHAR, SPACE_CHAR, TAB_CHAR}, constants::{TERMINAL_COLS, TERMINAL_ROWS, TITLEBAR_MARGIN}, cursor::Cursor};
 
 // REF: https://www.vt100.net/docs/la100-rm/chapter2.html
 
@@ -85,15 +85,34 @@ impl Terminal {
     }
 
     pub fn set_data(&mut self, buf: &mut Vec<u8>) {
-        for b in buf {
-            let b = *b as char;
+        let mut i = 0;
+        while i < buf.len() {
+            let b = buf[i] as char;
             if b == BACK_CHAR {
                 self.buffer.pop();
             } else if b == ESC_CHAR {
-                return;
+                let (remain, param, inter, final_byte) = EscapeCode::parse_csi(&buf[i+1..]);
+                // Process code here
+                let param = param.iter().map(|c| *c as char).collect::<String>();
+                let inter = inter.iter().map(|c| *c as char).collect::<String>();
+                let final_byte = final_byte as char;
+                match (param.as_str(), inter.as_str(), final_byte) {
+                    ("", "", 'J') | ("0", "", 'J') | ("1", "", 'J') | ("2", "", 'J') => {
+                        // Just clear everything for now
+                        self.buffer.clear();
+                    },
+                    _ => println!("Unhandled CSI sequence: [{}{}{}", param, inter, final_byte)
+                }
+                let parsed_size = buf.len() - remain.len() - 1;
+                if parsed_size > 0 {
+                    i += parsed_size;
+                } else {
+                    i += 1;
+                }
             } else if b != CR_CHAR && b != BELL_CHAR {
                 self.buffer.push(b as u8);
             }
+            i += 1;
         }
     }
 
