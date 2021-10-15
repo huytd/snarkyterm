@@ -206,3 +206,5 @@ Please don't mind the colorful grid :D it's just for testing.
 The character cell's background now being draw using a quad instead of a fake block character, the drawing is being handled
 by a separate rendering pipeline, which I called `quad_pipeline`, reducing the overhead for `glyph_brush`, hence, performance
 improved!
+
+[8c553c3](https://github.com/huytd/snarkyterm/commit/8c553c3)
