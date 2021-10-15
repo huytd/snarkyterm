@@ -21,7 +21,7 @@ fn main() {
         .with_fullsize_content_view(true)
         .with_title_hidden(true)
         .with_resizable(false)
-        .with_inner_size(winit::dpi::LogicalSize::new(760.0, 510.0))
+        .with_inner_size(winit::dpi::LogicalSize::new(769.0, 510.0))
         .build(&event_loop)
         .unwrap();
 

@@ -193,5 +193,16 @@ Automatially scrolling will be handled by adjusting `START_LINE` based on its di
 With this change, we can now render the cursor correctly, some special chars's behaviorp like `\n` or `\r`, or CSI sequences like
 `ESC[H`, `ESC[K`, `ESC[5A`,... can now be implemented.
 
-
 [ff20259](https://github.com/huytd/snarkyterm/commit/ff20259)
+
+# Oct 15th, 2021
+
+One step closer to coloring support!
+
+![](./_meta/oct-15.png)
+
+Please don't mind the colorful grid :D it's just for testing.
+
+The character cell's background now being draw using a quad instead of a fake block character, the drawing is being handled
+by a separate rendering pipeline, which I called `quad_pipeline`, reducing the overhead for `glyph_brush`, hence, performance
+improved!
